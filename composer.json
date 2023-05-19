@@ -1,0 +1,30 @@
+{
+    "name": "npbreland/sqlator",
+    "description": "Use AI to translate human language into SQL",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "NPBreland\\SQLator\\": "src/"
+        }
+    },
+    "autoload-dev": {
+      "psr-4": {
+        "Tests\\": "tests/"
+      }
+    },
+    "require": {
+        "psr/http-client": "^1.0.2",
+        "tectalic/openai": "^1.4",
+        "phpmyadmin/sql-parser": "^5.7"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.1"
+    },
+    "license": "GNU GPLv3",
+    "authors": [
+        {
+            "name": "Nick Breland",
+            "email": "npbreland@tutanota.com"
+        }
+    ]
+}
