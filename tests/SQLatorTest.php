@@ -38,7 +38,7 @@ class SQLatorTest extends TestCase
         );
     }
 
-    public function testSuccessfulAsk()
+    public function testSuccessfulReadAsk()
     {
         $result = $this->sqlator->ask('Give me all students.');
         $this->assertIsArray($result);
