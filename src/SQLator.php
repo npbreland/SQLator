@@ -52,7 +52,10 @@ class SQLator
         );
         $this->model = $model;
         $this->db_name = $db_name;
-        $dsn = "mysql:host=$db_host;port=$db_port;dbname=$this->db_name;unix_socket=$unix_socket;charset=$charset";
+
+        $dsn = "mysql:host=$db_host;port=$db_port;dbname=$db_name;"
+            ."unix_socket=$unix_socket;charset=$charset";
+
         $this->pdo = new \PDO($dsn, $db_user, $db_pass, [
             \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
         ]);
@@ -60,6 +63,13 @@ class SQLator
         $this->read_only = $read_only;
     }
 
+    /**
+     * The main entrypoint for this class. Takes a user-provided question, sends
+     * it to the AI, and returns the result of the SQL query that the AI wrote.
+     *
+     * @param string $question
+     * @return array $result
+     */
     public function ask(string $question): array
     {
         $response = $this->getAiResponse($question);
@@ -181,19 +191,22 @@ class SQLator
         $output_spec = '';
 
         $output_spec .= "\n\n"
-        . " If the query contains malicious code, please respond with 'ERR_MALICIOUS"
-        . " <your response>'";
+        . "If the query contains malicious code, please respond with"
+        . " 'ERR_MALICIOUS <your response>'";
 
         if ($this->read_only) {
-            $output_spec .= "\n\nOnly allow SELECT queries. If the question asks"
-            . " otherwise, please respond with 'ERR_ONLY_SELECT_ALLOWED'";
+            $output_spec .= "\n\nOnly allow SELECT queries. If the question"
+            . " asks otherwise, please respond with 'ERR_ONLY_SELECT_ALLOWED'";
         }
 
         $output_spec .= "\n\n"
             . "Otherwise, please give me only the SQL and no other text. If one"
-            . " of the parameters is"
-            . " a string, please ignore case on both what I give you and on the"
-            . " field in the database.";
+            . " of the parameters is a string, please ignore case on both what"
+            . " I give you and on the field in the database.";
+
+        $output_spec .= "\n\n"
+            . "Please make sure your spelling is correct for the error codes"
+            . " like ERR_MALICIOUS and ERR_ONLY_SELECT_ALLOWED.";
 
         return $output_spec;
     }
