@@ -1,6 +1,7 @@
 # SQLator TODOs
 
 ## Sooner
+* Publish composer package
 * Create tests for non-read queries
 * Create tests for more complex queries
 * Create README that outlines basic usage, suggested use cases, pitfalls,
