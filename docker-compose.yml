@@ -1,0 +1,36 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    image: sqlator_test
+    container_name: sqlator_www
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/app
+      - .env:/app/.env
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: sqlator_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sqlator_university
+      MYSQL_USER: test
+      MYSQL_PASSWORD: example
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    container_name: sqlator_adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+
+volumes:
+  mysql-data:

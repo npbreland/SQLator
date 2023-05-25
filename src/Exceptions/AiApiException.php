@@ -17,10 +17,9 @@ class AiApiException extends \Exception
         // Make the body available to the caller
         $this->body = $body;
 
-        $msg = "AI API error: $httpCode\n";
-        foreach ($body as $key => $value) {
-            $msg .= "\n$key: $value";
-        }
+        $msg = "AI API error: $httpCode";
+        $msg .= "\n".json_encode($body, JSON_PRETTY_PRINT);
+
         parent::__construct($msg, $code, $previous);
     }
 }

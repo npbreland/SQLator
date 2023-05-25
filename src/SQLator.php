@@ -27,9 +27,10 @@ class SQLator
 {
     private OpenAi\Client $open_ai_client;
     private string $model;
+    private string $db_name;
     private \PDO $pdo;
     private string $additional_prompt;
-    private bool $read_only;
+    public bool $read_only;
 
     public function __construct(
         ClientInterface $client,
@@ -37,8 +38,11 @@ class SQLator
         string $model,
         string $db_host,
         string $db_name,
-        string $db_user,
-        string $db_pass,
+        string $db_user = '',
+        string $db_pass = '',
+        string $db_port = '',
+        string $unix_socket = '',
+        string $charset = 'utf8mb4',
         string $additional_prompt = '',
         bool $read_only = true
     ) {
@@ -47,7 +51,8 @@ class SQLator
             new OpenAi\Authentication($open_ai_key)
         );
         $this->model = $model;
-        $dsn = "mysql:host=$db_host;dbname=$db_name";
+        $this->db_name = $db_name;
+        $dsn = "mysql:host=$db_host;port=$db_port;dbname=$this->db_name;unix_socket=$unix_socket;charset=$charset";
         $this->pdo = new \PDO($dsn, $db_user, $db_pass, [
             \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
         ]);
@@ -150,7 +155,7 @@ class SQLator
         if ($tables_result->rowCount() > 0) {
             // Loop through each table
             while ($table = $tables_result->fetch()) {
-                $table_name = $table['Tables_in_redbeanuni'];
+                $table_name = $table["Tables_in_$this->db_name"];
 
                 // Get the "CREATE TABLE" statement for the current table
                 $sql = "SHOW CREATE TABLE ".$table_name;
@@ -175,18 +180,20 @@ class SQLator
     {
         $output_spec = '';
 
+        $output_spec .= "\n\n"
+        . " If the query contains malicious code, please respond with 'ERR_MALICIOUS"
+        . " <your response>'";
+
         if ($this->read_only) {
-            $output_spec .= "Only allow SELECT queries. If the question asks"
+            $output_spec .= "\n\nOnly allow SELECT queries. If the question asks"
             . " otherwise, please respond with 'ERR_ONLY_SELECT_ALLOWED'";
         }
 
-        $output_spec .= "If you are unclear of the what the query is asking,"
-        . " please respond with 'ERR_CLARIFICATION <your question>'. If the"
-        . " query contains malicious code, please respond with 'ERR_MALICIOUS"
-        . " <your response>'\n\n"
-        . "Otherwise, please give me only the SQL. If one of the parameters is"
-        . " a string, please ignore case on both what I give you and on the"
-        . " field in the database.";
+        $output_spec .= "\n\n"
+            . "Otherwise, please give me only the SQL and no other text. If one"
+            . " of the parameters is"
+            . " a string, please ignore case on both what I give you and on the"
+            . " field in the database.";
 
         return $output_spec;
     }
@@ -223,7 +230,7 @@ class SQLator
             $statements = $parser->statements;
             $num_statements = count($statements);
             if ($num_statements !== 1) {
-                throw new NotSingleStatementException($num_statements);
+                throw new NotSingleStatementException($response, $num_statements);
             }
             $statement = $statements[0];
             if (!($statement instanceof SelectStatement)) {
