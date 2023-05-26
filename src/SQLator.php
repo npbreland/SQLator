@@ -17,20 +17,22 @@ use PhpMyAdmin\SqlParser\Statements\SelectStatement;
 
 use Psr\Http\Client\ClientInterface;
 
-use NPBreland\SQLator\Exceptions\ClarificationException;
+use NPBreland\SQLator\Exceptions\BadCommandException;
 use NPBreland\SQLator\Exceptions\MaliciousException;
 use NPBreland\SQLator\Exceptions\OnlySelectException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
 use NPBreland\SQLator\Exceptions\AiApiException;
+use NPBreland\SQLator\Exceptions\DbException;
 
 class SQLator
 {
     private OpenAi\Client $open_ai_client;
     private string $model;
     private string $db_name;
-    private \PDO $pdo;
     private string $additional_prompt;
+    public \PDO $pdo;
     public bool $read_only;
+    public bool $ignore_case_on_select;
 
     public function __construct(
         ClientInterface $client,
@@ -44,6 +46,7 @@ class SQLator
         string $unix_socket = '',
         string $charset = 'utf8mb4',
         string $additional_prompt = '',
+        bool $ignore_case_on_select = true,
         bool $read_only = true
     ) {
         $this->open_ai_client = OpenAi\Manager::build(
@@ -61,40 +64,51 @@ class SQLator
         ]);
         $this->additional_prompt = $additional_prompt;
         $this->read_only = $read_only;
+        $this->ignore_case_on_select = $ignore_case_on_select;
     }
 
     /**
-     * The main entrypoint for this class. Takes a user-provided question, sends
+     * The main entrypoint for this class. Takes a user-provided command, sends
      * it to the AI, and returns the result of the SQL query that the AI wrote.
      *
-     * @param string $question
-     * @return array $result
+     * @param string $command
+     * @return array|int $result
      */
-    public function ask(string $question): array
+    public function command(string $command): array|int
     {
-        $response = $this->getAiResponse($question);
-        $this->handleQueryErrors($response);
+        $response = $this->sendCommandToAi($command);
+        $this->handleQueryErrors($command, $response);
         // Response should be SQL if it passed the error handling
         $result = $this->executeSql($response);
         return $result;
     }
 
     /**
-     * Sends the user's question to the AI and gets its response.
+     * Sends the user's command to the AI and gets its response.
      *
-     * @param string $question
+     * @param string $command
      *
      * @throws AiApiException
      *
      * @return string
      */
-    private function getAiResponse(string $question): string
+    private function sendCommandToAi(string $command): string
     {
-        $prompt = $this->buildPrompt($question);
-        $handler = $this->open_ai_client->completions()->create(
-            new OpenAi\Models\Completions\CreateRequest([
+        $prompt = $this->buildPrompt($command);
+        $handler = $this->open_ai_client->chatCompletions()->create(
+            new OpenAi\Models\ChatCompletions\CreateRequest([
                 'model' => $this->model,
-                'prompt'=> $prompt,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a translator that translates human language commands into SQL queries.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ],
+                ],
+                'temperature' => 0,
             ])
         );
         try {
@@ -105,24 +119,21 @@ class SQLator
             throw new AiApiException($httpCode, $body);
         }
 
-        return $model->choices[0]->text;
+        return $model->choices[0]->message->content;
     }
 
     /**
-     * Builds the full prompt that this class will send to the AI.
+     * Builds the prompt that this class will send to the AI.
      *
-     * @param string $question The user-provided question
-     *
+     * @param string $command
      * @return string
      */
-    private function buildPrompt(string $question): string
+    private function buildPrompt($command): string
     {
         $schema_str = $this->getSchemas();
         $output_spec = $this->getOutputSpec();
 
-        $prompt = "I am going to give you a set of table schemas and then ask"
-        . " you to write queries for it. These are all of the tables. There are"
-        . " no others. Here are the schemas:\n\n"
+        $prompt = "Below are a set of MySQL table schemas. You will respond to user commands or queries with SQL querying that database."
         . $schema_str;
 
         if ($this->additional_prompt !== '') {
@@ -130,8 +141,9 @@ class SQLator
             . " write your queries.\n\n"
             . $this->additional_prompt;
         }
+        $prompt .= "\nWrite a query for the following command/query: '$command'";
 
-        $prompt .= "Now, write a query for the following question: '$question'"
+        $prompt .= ""
         . "\n\n"
         . $output_spec;
 
@@ -139,17 +151,25 @@ class SQLator
     }
 
     /**
-     * Executes SQL and returns the result.
+     * Executes SQL and returns the result. Returns an array if the query is
+     * SELECT, and the number of affected otherwise.
      *
      * @param string $sql
-     *
-     * @return array
+     * @throws DbException
+     * @return array|int
      */
-    private function executeSql(string $sql): array
+    private function executeSql(string $sql): array|int
     {
-        $result = $this->pdo->query($sql);
-        $rows = $result->fetchAll();
-        return $rows;
+        try {
+            $result = $this->pdo->query($sql);
+            $rows = $result->fetchAll();
+            if (count($rows) > 0) {
+                return $rows;
+            }
+            return $result->rowCount();
+        } catch (\PDOException $e) {
+            throw new DbException($sql, 0, $e);
+        }
     }
 
     /**
@@ -188,25 +208,12 @@ class SQLator
      */
     private function getOutputSpec(): string
     {
-        $output_spec = '';
+        $output_spec = "Respond with only the valid SQL.";
 
-        $output_spec .= "\n\n"
-        . "If the query contains malicious code, please respond with"
-        . " 'ERR_MALICIOUS <your response>'";
-
-        if ($this->read_only) {
-            $output_spec .= "\n\nOnly allow SELECT queries. If the question"
-            . " asks otherwise, please respond with 'ERR_ONLY_SELECT_ALLOWED'";
+        if ($this->ignore_case_on_select) {
+            $output_spec .= " For SELECT queries, ignore case on both the input"
+                . " and on what it is matching on in the database.";
         }
-
-        $output_spec .= "\n\n"
-            . "Otherwise, please give me only the SQL and no other text. If one"
-            . " of the parameters is a string, please ignore case on both what"
-            . " I give you and on the field in the database.";
-
-        $output_spec .= "\n\n"
-            . "Please make sure your spelling is correct for the error codes"
-            . " like ERR_MALICIOUS and ERR_ONLY_SELECT_ALLOWED.";
 
         return $output_spec;
     }
@@ -215,25 +222,17 @@ class SQLator
      * Handle any of the errors that can be returned from the AI. Throws an
      * error if one is encountered. Otherwise, does nothing.
      *
+     * @param string $command The original user command
      * @param string $response The response from the AI
      *
-     * @throws ClarificationException
-     * @throws MaliciousException
+     * @throws BadCommandException
      * @throws OnlySelectException
      * @throws NonSingleStatementException
      *
      * @return void
      */
-    private function handleQueryErrors(string $response): void
+    private function handleQueryErrors(string $command, string $response): void
     {
-        if (strpos($response, 'ERR_CLARIFICATION') !== false) {
-            throw new ClarificationException($response);
-        } elseif (strpos($response, 'ERR_MALICIOUS') !== false) {
-            throw new MaliciousException($response);
-        } elseif (strpos($response, 'ERR_ONLY_SELECT_ALLOWED') !== false) {
-            throw new OnlySelectException($response);
-        }
-
         if ($this->read_only) {
             /* Uses the SQL parser as a redundant check to make sure it is a
              * SELECT query. Additionally checks that it is only a single
@@ -243,11 +242,11 @@ class SQLator
             $statements = $parser->statements;
             $num_statements = count($statements);
             if ($num_statements !== 1) {
-                throw new NotSingleStatementException($response, $num_statements);
+                throw new NotSingleStatementException($command, $response, $num_statements);
             }
             $statement = $statements[0];
             if (!($statement instanceof SelectStatement)) {
-                throw new OnlySelectException($response);
+                throw new OnlySelectException($command, $response);
             }
         }
     }

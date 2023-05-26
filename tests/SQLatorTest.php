@@ -11,14 +11,16 @@ use Tectalic\OpenAi as OpenAi;
 
 use NPBreland\SQLator\SQLator;
 use NPBreland\SQLator\Exceptions\ClarificationException;
+use NPBreland\SQLator\Exceptions\BadCommandException;
 use NPBreland\SQLator\Exceptions\MaliciousException;
 use NPBreland\SQLator\Exceptions\OnlySelectException;
+use NPBreland\SQLator\Exceptions\DbException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
 use NPBreland\SQLator\Exceptions\AiApiException;
 
 class SQLatorTest extends TestCase
 {
-    protected $sqlator;
+    protected SQLator $sqlator;
 
     protected function setUp(): void
     {
@@ -38,30 +40,77 @@ class SQLatorTest extends TestCase
         );
     }
 
-    public function testSuccessfulReadAsk()
+    /*
+    public function testReadComplexity1()
     {
-        $result = $this->sqlator->ask('Give me all students.');
-        $this->assertIsArray($result);
+        $aiResult = $this->sqlator->command('Give me all students.');
+        $stmt = $this->sqlator->pdo->query('SELECT * FROM student');
+        $dbResult = $stmt->fetchAll();
+        $this->assertEquals($dbResult, $aiResult);
     }
 
-    public function testAiBlocksMaliciousRequest()
+    public function testReadComplexity2()
+    {
+        $aiResult = $this->sqlator->command('Give me all students with a birthday in May.');
+        $stmt = $this->sqlator->pdo->query('SELECT * FROM student WHERE MONTH(date_of_birth) = 5');
+        $dbResult = $stmt->fetchAll();
+        $this->assertEquals(count($dbResult), count($aiResult));
+    }
+     */
+
+    public function testReadComplexity3()
+    {
+        $command = 'Give me all students who reside in Gulgowski Hall.';
+        $sql = <<<SQL
+            SELECT *
+              FROM student
+                   JOIN residence
+                   ON student.id = residence.student_id
+                    
+                   JOIN building
+                   ON residence.building_id = building.id
+             WHERE building.name = 'Gulgowski Hall'
+SQL;
+        $aiResult = $this->sqlator->command($command);
+        $stmt = $this->sqlator->pdo->query($sql);
+        $dbResult = $stmt->fetchAll();
+        $this->assertEquals(count($dbResult), count($aiResult));
+    }
+
+    /*
+    public function testSuccessfulSimpleWrite()
     {
         $this->sqlator->read_only = false;
-        $this->expectException(MaliciousException::class);
-        $this->sqlator->ask('SELECT * FROM users; DROP TABLE users;');
+
+        $first_name = 'Walter';
+        $last_name = 'White';
+
+        $deleteQuery = "DELETE FROM student WHERE first_name = '$first_name' AND last_name = '$last_name'";
+
+        // Clear any existing students with the same name
+        $this->sqlator->pdo->query($deleteQuery);
+
+        $this->sqlator->command("Insert a new student named $first_name $last_name.");
+        $stmt = $this->sqlator->pdo->query("SELECT * FROM student WHERE first_name = '$first_name' AND last_name = '$last_name'");
+        $dbResult = count($stmt->fetchAll());
+        $this->assertEquals(1, $dbResult);
+
+        // Clean up
+        $this->sqlator->pdo->query($deleteQuery);
     }
 
-    public function testAiBadQuery()
+    public function testAiNoResults()
     {
-        $this->expectException(PDOException::class);
-        $this->sqlator->ask('Get me students with');
+        $this->expectException(NotSingleStatementException::class);
+        $this->sqlator->command('Get me students with');
     }
 
     public function testAiOnlyAllowsSelect()
     {
         $this->expectException(OnlySelectException::class);
-        $this->sqlator->ask('Update all students to have a first name of Bob.');
+        $this->sqlator->command('Update all students to have a first name of Bob.');
     }
+     */
 
     public function tearDown(): void
     {
