@@ -40,7 +40,6 @@ class SQLatorTest extends TestCase
         );
     }
 
-    /*
     public function testReadComplexity1()
     {
         $aiResult = $this->sqlator->command('Give me all students.');
@@ -56,7 +55,6 @@ class SQLatorTest extends TestCase
         $dbResult = $stmt->fetchAll();
         $this->assertEquals(count($dbResult), count($aiResult));
     }
-     */
 
     public function testReadComplexity3()
     {
@@ -77,7 +75,6 @@ SQL;
         $this->assertEquals(count($dbResult), count($aiResult));
     }
 
-    /*
     public function testSuccessfulSimpleWrite()
     {
         $this->sqlator->read_only = false;
@@ -110,7 +107,6 @@ SQL;
         $this->expectException(OnlySelectException::class);
         $this->sqlator->command('Update all students to have a first name of Bob.');
     }
-     */
 
     public function tearDown(): void
     {
