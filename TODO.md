@@ -4,6 +4,7 @@
 * Publish composer package
 * Create tests for non-read queries
 * Create tests for more complex queries
+* Make sure capitalization convention is consistent (SQLator vs Sqlator)
 * Create README that outlines basic usage, suggested use cases, pitfalls,
 testing, etc.
 * Make compatible with other databases, not just MySQL. The major obstacle here
