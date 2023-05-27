@@ -28,7 +28,7 @@ class SQLatorTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        TestDBHandler::build();
+        TestDataHandler::build();
     }
 
     protected function setUp(): void
@@ -135,6 +135,6 @@ class SQLatorTest extends TestCase
         sleep(1);
 
         // Clear the database
-        TestDBHandler::wipe();
+        TestDataHandler::wipe();
     }
 }
