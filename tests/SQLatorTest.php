@@ -91,18 +91,6 @@ class SQLatorTest extends TestCase
         }
 
         $command = 'Give me all students who reside in Gulgowski Hall.';
-        /*
-        $sql = <<<SQL
-            SELECT *
-              FROM student
-                   JOIN residence
-                   ON student.id = residence.student_id
-
-                   JOIN building
-                   ON residence.building_id = building.id
-             WHERE building.name = 'Gulgowski Hall'
-SQL;
-         */
         $aiResult = $this->sqlator->command($command);
         $this->assertEquals(5, count($aiResult));
     }
