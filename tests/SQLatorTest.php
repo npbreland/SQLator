@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+namespace NPBreland\SQLator\Tests;
+
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client as Client;
-//use Http\Mock\Client;
 use Dotenv\Dotenv;
 
 use Tectalic\OpenAi as OpenAi;
+
+use RedBeanPHP\R as R;
 
 use NPBreland\SQLator\SQLator;
 use NPBreland\SQLator\Exceptions\ClarificationException;
@@ -18,9 +21,17 @@ use NPBreland\SQLator\Exceptions\DbException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
 use NPBreland\SQLator\Exceptions\AiApiException;
 
+require_once 'TestDBHandler.php';
+
 class SQLatorTest extends TestCase
 {
     protected SQLator $sqlator;
+    protected \Faker\Generator $faker;
+
+    public static function setUpBeforeClass(): void
+    {
+        TestDBHandler::build();
+    }
 
     protected function setUp(): void
     {
@@ -38,41 +49,64 @@ class SQLatorTest extends TestCase
             db_user: 'test',
             db_pass: 'example',
         );
+
+        $this->faker = \Faker\Factory::create();
     }
 
-    public function testReadComplexity1()
+    public function testReadLevel1()
     {
+        $students = R::dispense('student', 10);
+        R::storeAll($students);
+
         $aiResult = $this->sqlator->command('Give me all students.');
-        $stmt = $this->sqlator->pdo->query('SELECT * FROM student');
-        $dbResult = $stmt->fetchAll();
-        $this->assertEquals($dbResult, $aiResult);
+        $this->assertEquals(10, count($aiResult));
     }
 
-    public function testReadComplexity2()
+    public function testReadLevel2()
     {
+        $students = R::dispense('student', 10);
+        foreach ($students as $student) {
+            $student->date_of_birth = $this->faker->dateTime()->format('Y-5-d');
+            R::store($student);
+        }
         $aiResult = $this->sqlator->command('Give me all students with a birthday in May.');
-        $stmt = $this->sqlator->pdo->query('SELECT * FROM student WHERE MONTH(date_of_birth) = 5');
-        $dbResult = $stmt->fetchAll();
-        $this->assertEquals(count($dbResult), count($aiResult));
+        $this->assertEquals(10, count($aiResult));
     }
 
     public function testReadComplexity3()
     {
+        $students = R::dispense('student', 5);
+        R::storeAll($students);
+
+        $building = R::dispense('building');
+        $building->name = 'Gulgowski Hall';
+        $id = R::store($building);
+        $building = R::load('building', $id);
+
+        $residences = R::dispense('residence', 5);
+        foreach ($residences as $residence) {
+            $residence->building = $building;
+            $residence->number = $this->faker->numberBetween(100, 999);
+            $student = R::findOne('student');
+            $residence->student = $student;
+            R::store($residence);
+        }
+
         $command = 'Give me all students who reside in Gulgowski Hall.';
+        /*
         $sql = <<<SQL
             SELECT *
               FROM student
                    JOIN residence
                    ON student.id = residence.student_id
-                    
+
                    JOIN building
                    ON residence.building_id = building.id
              WHERE building.name = 'Gulgowski Hall'
 SQL;
+         */
         $aiResult = $this->sqlator->command($command);
-        $stmt = $this->sqlator->pdo->query($sql);
-        $dbResult = $stmt->fetchAll();
-        $this->assertEquals(count($dbResult), count($aiResult));
+        $this->assertEquals(5, count($aiResult));
     }
 
     public function testSuccessfulSimpleWrite()
@@ -82,18 +116,13 @@ SQL;
         $first_name = 'Walter';
         $last_name = 'White';
 
-        $deleteQuery = "DELETE FROM student WHERE first_name = '$first_name' AND last_name = '$last_name'";
-
-        // Clear any existing students with the same name
-        $this->sqlator->pdo->query($deleteQuery);
-
         $this->sqlator->command("Insert a new student named $first_name $last_name.");
-        $stmt = $this->sqlator->pdo->query("SELECT * FROM student WHERE first_name = '$first_name' AND last_name = '$last_name'");
-        $dbResult = count($stmt->fetchAll());
-        $this->assertEquals(1, $dbResult);
+        $dbCount = R::count('student', 'first_name = ? AND last_name = ?', [
+            $first_name,
+            $last_name
+        ]);
 
-        // Clean up
-        $this->sqlator->pdo->query($deleteQuery);
+        $this->assertEquals(1, $dbCount);
     }
 
     public function testAiNoResults()
@@ -111,12 +140,15 @@ SQL;
     public function tearDown(): void
     {
         // Needed to reset the client for each test
-        $reflection = new ReflectionClass(OpenAi\Manager::class);
+        $reflection = new \ReflectionClass(OpenAi\Manager::class);
         $property = $reflection->getProperty('client');
         $property->setAccessible(true);
         $property->setValue(null);
 
         // Wait to avoid rate limiting
         sleep(1);
+
+        // Clear the database
+        TestDBHandler::wipe();
     }
 }
