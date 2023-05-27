@@ -17,7 +17,7 @@ namespace Tests;
 
 use RedBeanPHP\R as R;
 
-class TestDBHandler
+class TestDataHandler
 {
     /**
      * Build the data for the test schema, freeze the schema, and wipe the data.
