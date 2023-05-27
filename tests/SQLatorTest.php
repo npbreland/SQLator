@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NPBreland\SQLator\Tests;
+namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client as Client;
@@ -20,8 +20,6 @@ use NPBreland\SQLator\Exceptions\OnlySelectException;
 use NPBreland\SQLator\Exceptions\DbException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
 use NPBreland\SQLator\Exceptions\AiApiException;
-
-require_once 'TestDBHandler.php';
 
 class SQLatorTest extends TestCase
 {

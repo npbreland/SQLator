@@ -1,6 +1,6 @@
 <?php
 
-namespace NPBreland\SQLator\Tests;
+namespace Tests;
 
 /**
  * Builds the schema of the database so that it can be used for testing.
