@@ -71,7 +71,7 @@ class SQLatorTest extends TestCase
         $this->assertEquals(10, count($aiResult));
     }
 
-    public function testReadComplexity3()
+    public function testReadLevel3()
     {
         $students = R::dispense('student', 5);
         R::storeAll($students);
