@@ -17,12 +17,9 @@ use PhpMyAdmin\SqlParser\Statements\SelectStatement;
 
 use Psr\Http\Client\ClientInterface;
 
-use NPBreland\SQLator\Exceptions\BadCommandException;
-use NPBreland\SQLator\Exceptions\MaliciousException;
 use NPBreland\SQLator\Exceptions\OnlySelectException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
 use NPBreland\SQLator\Exceptions\AI_APIException;
-use NPBreland\SQLator\Exceptions\DBException;
 
 class SQLator
 {
@@ -167,21 +164,16 @@ class SQLator
      * SELECT, and the number of affected otherwise.
      *
      * @param string $SQL
-     * @throws DBException
      * @return array|int
      */
     private function executeSQL(string $SQL): array|int
     {
-        try {
-            $result = $this->pdo->query($SQL);
-            $rows = $result->fetchAll();
-            if (count($rows) > 0) {
-                return $rows;
-            }
-            return $result->rowCount();
-        } catch (\PDOException $e) {
-            throw new DBException($SQL, 0, $e);
+        $result = $this->pdo->query($SQL);
+        $rows = $result->fetchAll();
+        if (count($rows) > 0) {
+            return $rows;
         }
+        return $result->rowCount();
     }
 
     /**

@@ -13,13 +13,8 @@ use Tectalic\OpenAi as OpenAi;
 use RedBeanPHP\R as R;
 
 use NPBreland\SQLator\SQLator;
-use NPBreland\SQLator\Exceptions\ClarificationException;
-use NPBreland\SQLator\Exceptions\BadCommandException;
-use NPBreland\SQLator\Exceptions\MaliciousException;
 use NPBreland\SQLator\Exceptions\OnlySelectException;
-use NPBreland\SQLator\Exceptions\DbException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
-use NPBreland\SQLator\Exceptions\AiApiException;
 
 class SQLatorTest extends TestCase
 {
@@ -56,7 +51,7 @@ class SQLatorTest extends TestCase
         $students = R::dispense('student', 10);
         R::storeAll($students);
 
-        $AI_result = $this->sqlator->commandToResult('Give me all students.');
+        $AI_result = $this->SQLator->commandToResult('Give me all students.');
         $this->assertEquals(10, count($AI_result));
     }
 
@@ -67,7 +62,7 @@ class SQLatorTest extends TestCase
             $student->date_of_birth = $this->faker->dateTime()->format('Y-5-d');
             R::store($student);
         }
-        $AI_result = $this->sqlator->commandToResult('Give me all students with a birthday in May.');
+        $AI_result = $this->SQLator->commandToResult('Give me all students with a birthday in May.');
         $this->assertEquals(10, count($AI_result));
     }
 
@@ -91,7 +86,7 @@ class SQLatorTest extends TestCase
         }
 
         $command = 'Give me all students who reside in Gulgowski Hall.';
-        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_result = $this->SQLator->commandToResult($command);
         $this->assertEquals(5, count($AI_result));
     }
 
@@ -137,7 +132,7 @@ class SQLatorTest extends TestCase
         }
 
         $command = 'Give me all students enrolled in a class taught by Walter White.';
-        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_result = $this->SQLator->commandToResult($command);
         $this->assertEquals(3, count($AI_result));
     }
 
@@ -159,19 +154,25 @@ class SQLatorTest extends TestCase
 
         $command = 'Give me the last names and birthdays of all students.';
 
-        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_result = $this->SQLator->commandToResult($command);
         $this->assertEquals([
             [
                 'last_name' => 'White',
-                'date_of_birth' => '1959-09-07'
+                'date_of_birth' => '1959-09-07',
+                0 => 'White',
+                1 => '1959-09-07'
             ],
             [
                 'last_name' => 'Pinkman',
-                'date_of_birth' => '1984-09-24'
+                'date_of_birth' => '1984-09-24',
+                0 => 'Pinkman',
+                1 => '1984-09-24'
             ],
             [
                 'last_name' => 'White',
-                'date_of_birth' => '1970-08-11'
+                'date_of_birth' => '1970-08-11',
+                0 => 'White',
+                1 => '1970-08-11'
             ]
         ], $AI_result);
     }
@@ -194,9 +195,61 @@ class SQLatorTest extends TestCase
 
         $command = 'How many students are there?';
 
-        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_result = $this->SQLator->commandToResult($command);
         $AI_count = $AI_result[0][0];
         $this->assertEquals(3, $AI_count);
+    }
+
+
+    public function testWriteLevel1()
+    {
+        $this->SQLator->read_only = false;
+
+        $first_name = 'Walter';
+        $last_name = 'White';
+
+        $this->SQLator->commandToResult("Insert a new student named $first_name $last_name.");
+        $DB_count = R::count('student', 'first_name = ? AND last_name = ?', [
+            $first_name,
+            $last_name
+        ]);
+
+        $this->assertEquals(1, $DB_count);
+    }
+
+    public function testAlterTable()
+    {
+        $this->SQLator->read_only = false;
+        $this->SQLator->commandToResult("Create a new student field for favorite color.");
+        $result = $this->SQLator->pdo->query('SHOW COLUMNS FROM student LIKE "favorite_color"');
+        $this->assertEquals(1, $result->rowCount());
+    }
+
+    public function testNoResults()
+    {
+        $this->expectException(NotSingleStatementException::class);
+        $this->SQLator->commandToResult('Get me students with');
+    }
+
+    public function testOnlyAllowsSelect()
+    {
+        $this->expectException(OnlySelectException::class);
+        $this->SQLator->commandToResult('Update all students to have a first name of Bob.');
+    }
+
+    public function tearDown(): void
+    {
+        // Needed to reset the client for each test
+        $reflection = new \ReflectionClass(OpenAi\Manager::class);
+        $property = $reflection->getProperty('client');
+        $property->setAccessible(true);
+        $property->setValue(null);
+
+        // Wait to avoid rate limiting
+        sleep(3);
+
+        // Clear the database
+        TestDataHandler::wipe();
     }
 
     /**
@@ -251,61 +304,10 @@ class SQLatorTest extends TestCase
 
         $command = 'What is the average number of students per class?';
 
-        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_result = $this->SQLator->commandToResult($command);
 
         $AI_avg = $AI_result[0][0];
         $this->assertEquals(10, $AI_avg);
     }
      */
-
-    public function testWriteLevel1()
-    {
-        $this->sqlator->read_only = false;
-
-        $first_name = 'Walter';
-        $last_name = 'White';
-
-        $this->sqlator->commandToResult("Insert a new student named $first_name $last_name.");
-        $DB_count = R::count('student', 'first_name = ? AND last_name = ?', [
-            $first_name,
-            $last_name
-        ]);
-
-        $this->assertEquals(1, $DB_count);
-    }
-
-    public function testAlterTable()
-    {
-        $this->sqlator->read_only = false;
-        $this->sqlator->commandToResult("Create a new student field for favorite color.");
-        $result = $this->sqlator->pdo->query('SHOW COLUMNS FROM student LIKE "favorite_color"');
-        $this->assertEquals(1, $result->rowCount());
-    }
-
-    public function testAiNoResults()
-    {
-        $this->expectException(NotSingleStatementException::class);
-        $this->sqlator->commandToResult('Get me students with');
-    }
-
-    public function testAiOnlyAllowsSelect()
-    {
-        $this->expectException(OnlySelectException::class);
-        $this->sqlator->commandToResult('Update all students to have a first name of Bob.');
-    }
-
-    public function tearDown(): void
-    {
-        // Needed to reset the client for each test
-        $reflection = new \ReflectionClass(OpenAi\Manager::class);
-        $property = $reflection->getProperty('client');
-        $property->setAccessible(true);
-        $property->setValue(null);
-
-        // Wait to avoid rate limiting
-        sleep(1);
-
-        // Clear the database
-        TestDataHandler::wipe();
-    }
 }
