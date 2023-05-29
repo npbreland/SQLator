@@ -23,7 +23,7 @@ use NPBreland\SQLator\Exceptions\AiApiException;
 
 class SQLatorTest extends TestCase
 {
-    protected SQLator $sqlator;
+    protected SQLator $SQLator;
     protected \Faker\Generator $faker;
 
     public static function setUpBeforeClass(): void
@@ -38,14 +38,14 @@ class SQLatorTest extends TestCase
         $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
         $dotenv->load();
 
-        $this->sqlator = new SQLator(
+        $this->SQLator = new SQLator(
             client: $client,
-            open_ai_key: $_ENV['OPENAI_API_KEY'],
+            open_AI_key: $_ENV['OPENAI_API_KEY'],
             model: $_ENV['OPENAI_MODEL'],
-            db_host: 'sqlator_db',
-            db_name: 'sqlator_university',
-            db_user: 'test',
-            db_pass: 'example',
+            DB_host: 'sqlator_db',
+            DB_name: 'sqlator_university',
+            DB_user: 'test',
+            DB_pass: 'example',
         );
 
         $this->faker = \Faker\Factory::create();
@@ -56,8 +56,8 @@ class SQLatorTest extends TestCase
         $students = R::dispense('student', 10);
         R::storeAll($students);
 
-        $aiResult = $this->sqlator->command('Give me all students.');
-        $this->assertEquals(10, count($aiResult));
+        $AI_result = $this->sqlator->commandToResult('Give me all students.');
+        $this->assertEquals(10, count($AI_result));
     }
 
     public function testReadLevel2()
@@ -67,8 +67,8 @@ class SQLatorTest extends TestCase
             $student->date_of_birth = $this->faker->dateTime()->format('Y-5-d');
             R::store($student);
         }
-        $aiResult = $this->sqlator->command('Give me all students with a birthday in May.');
-        $this->assertEquals(10, count($aiResult));
+        $AI_result = $this->sqlator->commandToResult('Give me all students with a birthday in May.');
+        $this->assertEquals(10, count($AI_result));
     }
 
     public function testReadLevel3()
@@ -91,36 +91,207 @@ class SQLatorTest extends TestCase
         }
 
         $command = 'Give me all students who reside in Gulgowski Hall.';
-        $aiResult = $this->sqlator->command($command);
-        $this->assertEquals(5, count($aiResult));
+        $AI_result = $this->sqlator->commandToResult($command);
+        $this->assertEquals(5, count($AI_result));
     }
 
-    public function testSuccessfulSimpleWrite()
+    public function testReadLevel4()
+    {
+        $instructor = R::dispense('instructor');
+
+        $instructor->first_name = 'Walter';
+        $instructor->last_name = 'White';
+        R::store($instructor);
+
+        $course = R::dispense('course');
+        $course->name = 'Chemistry';
+        R::store($course);
+
+        $classroom = R::dispense('classroom');
+        $classroom->number = 101;
+        R::store($classroom);
+
+        $term = R::findOne('academicterm');
+
+        $offering = R::dispense('offering');
+        $offering->instructor = $instructor;
+        $offering->course = $course;
+        $offering->classroom = $classroom;
+        $offering->term = $term;
+        R::store($offering);
+
+        // Assign a meeting time to the offering
+        $meeting = R::dispense('meeting');
+        $meeting->offering = $offering;
+        $meeting->day = 2; // Monday
+        $meeting->start_time = $this->faker->time('H:i:s');
+        $meeting->end_time = $this->faker->time('H:i:s');
+        R::store($meeting);
+
+        $students = R::dispense('student', 5);
+        for ($i = 0; $i < 3; $i++) {
+            $enrollment = R::dispense('enrollment');
+            $enrollment->student = $students[$i];
+            $enrollment->offering = $offering;
+            R::store($enrollment);
+        }
+
+        $command = 'Give me all students enrolled in a class taught by Walter White.';
+        $AI_result = $this->sqlator->commandToResult($command);
+        $this->assertEquals(3, count($AI_result));
+    }
+
+    public function testSpecifyColumns()
+    {
+        $students = R::dispense('student', 3);
+        $students[0]->first_name = 'Walter';
+        $students[0]->last_name = 'White';
+        $students[0]->date_of_birth = '1959-09-07';
+
+        $students[1]->first_name = 'Jesse';
+        $students[1]->last_name = 'Pinkman';
+        $students[1]->date_of_birth = '1984-09-24';
+
+        $students[2]->first_name = 'Skyler';
+        $students[2]->last_name = 'White';
+        $students[2]->date_of_birth = '1970-08-11';
+        R::storeAll($students);
+
+        $command = 'Give me the last names and birthdays of all students.';
+
+        $AI_result = $this->sqlator->commandToResult($command);
+        $this->assertEquals([
+            [
+                'last_name' => 'White',
+                'date_of_birth' => '1959-09-07'
+            ],
+            [
+                'last_name' => 'Pinkman',
+                'date_of_birth' => '1984-09-24'
+            ],
+            [
+                'last_name' => 'White',
+                'date_of_birth' => '1970-08-11'
+            ]
+        ], $AI_result);
+    }
+
+    public function testCount()
+    {
+        $students = R::dispense('student', 3);
+        $students[0]->first_name = 'Walter';
+        $students[0]->last_name = 'White';
+        $students[0]->date_of_birth = '1959-09-07';
+
+        $students[1]->first_name = 'Jesse';
+        $students[1]->last_name = 'Pinkman';
+        $students[1]->date_of_birth = '1984-09-24';
+
+        $students[2]->first_name = 'Skyler';
+        $students[2]->last_name = 'White';
+        $students[2]->date_of_birth = '1970-08-11';
+        R::storeAll($students);
+
+        $command = 'How many students are there?';
+
+        $AI_result = $this->sqlator->commandToResult($command);
+        $AI_count = $AI_result[0][0];
+        $this->assertEquals(3, $AI_count);
+    }
+
+    /**
+     * Test fails with GPT-3.5. Try GPT-4?
+     *
+     */
+    /*
+    public function testAverage()
+    {
+        $students = R::dispense('student', 40);
+        R::storeAll($students);
+
+        $instructor = R::dispense('instructor');
+        R::store($instructor);
+
+        $course = R::dispense('course');
+        R::store($course);
+
+        $classroom = R::dispense('classroom');
+        R::store($classroom);
+
+        $offerings = R::dispense('offering', 4);
+        R::storeAll($offerings);
+
+        $enrollments = R::dispense('enrollment', 40);
+
+        // 3 students in the first class
+        for ($i = 0; $i < 3; $i++) {
+            $enrollments[$i]->student = $students[$i];
+            $enrollments[$i]->offering = $offerings[0];
+        }
+
+        // 2 students in the second class
+        for ($i = 3; $i < 5; $i++) {
+            $enrollments[$i]->student = $students[$i];
+            $enrollments[$i]->offering = $offerings[1];
+        }
+
+        // 5 students in the third class
+        for ($i = 5; $i < 10; $i++) {
+            $enrollments[$i]->student = $students[$i];
+            $enrollments[$i]->offering = $offerings[2];
+        }
+
+        // 30 students in the fourth class
+        for ($i = 10; $i < 40; $i++) {
+            $enrollments[$i]->student = $students[$i];
+            $enrollments[$i]->offering = $offerings[3];
+        }
+
+        R::storeAll($enrollments);
+
+        $command = 'What is the average number of students per class?';
+
+        $AI_result = $this->sqlator->commandToResult($command);
+
+        $AI_avg = $AI_result[0][0];
+        $this->assertEquals(10, $AI_avg);
+    }
+     */
+
+    public function testWriteLevel1()
     {
         $this->sqlator->read_only = false;
 
         $first_name = 'Walter';
         $last_name = 'White';
 
-        $this->sqlator->command("Insert a new student named $first_name $last_name.");
-        $dbCount = R::count('student', 'first_name = ? AND last_name = ?', [
+        $this->sqlator->commandToResult("Insert a new student named $first_name $last_name.");
+        $DB_count = R::count('student', 'first_name = ? AND last_name = ?', [
             $first_name,
             $last_name
         ]);
 
-        $this->assertEquals(1, $dbCount);
+        $this->assertEquals(1, $DB_count);
+    }
+
+    public function testAlterTable()
+    {
+        $this->sqlator->read_only = false;
+        $this->sqlator->commandToResult("Create a new student field for favorite color.");
+        $result = $this->sqlator->pdo->query('SHOW COLUMNS FROM student LIKE "favorite_color"');
+        $this->assertEquals(1, $result->rowCount());
     }
 
     public function testAiNoResults()
     {
         $this->expectException(NotSingleStatementException::class);
-        $this->sqlator->command('Get me students with');
+        $this->sqlator->commandToResult('Get me students with');
     }
 
     public function testAiOnlyAllowsSelect()
     {
         $this->expectException(OnlySelectException::class);
-        $this->sqlator->command('Update all students to have a first name of Bob.');
+        $this->sqlator->commandToResult('Update all students to have a first name of Bob.');
     }
 
     public function tearDown(): void

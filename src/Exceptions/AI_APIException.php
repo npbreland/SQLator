@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NPBreland\SQLator\Exceptions;
 
-class AiApiException extends \Exception
+class AI_APIException extends \Exception
 {
     public array $body;
 

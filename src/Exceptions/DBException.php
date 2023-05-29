@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NPBreland\SQLator\Exceptions;
 
-class DbException extends \Exception
+class DBException extends \Exception
 {
     public function __construct(
         string $sql,

@@ -21,14 +21,14 @@ use NPBreland\SQLator\Exceptions\BadCommandException;
 use NPBreland\SQLator\Exceptions\MaliciousException;
 use NPBreland\SQLator\Exceptions\OnlySelectException;
 use NPBreland\SQLator\Exceptions\NotSingleStatementException;
-use NPBreland\SQLator\Exceptions\AiApiException;
-use NPBreland\SQLator\Exceptions\DbException;
+use NPBreland\SQLator\Exceptions\AI_APIException;
+use NPBreland\SQLator\Exceptions\DBException;
 
 class SQLator
 {
-    private OpenAi\Client $open_ai_client;
+    private OpenAi\Client $open_AI_client;
     private string $model;
-    private string $db_name;
+    private string $DB_name;
     private string $additional_prompt;
     public \PDO $pdo;
     public bool $read_only;
@@ -36,32 +36,30 @@ class SQLator
 
     public function __construct(
         ClientInterface $client,
-        string $open_ai_key,
+        string $open_AI_key,
         string $model,
-        string $db_host,
-        string $db_name,
-        string $db_user = '',
-        string $db_pass = '',
-        string $db_port = '',
+        string $DB_host,
+        string $DB_name,
+        string $DB_user = '',
+        string $DB_pass = '',
+        string $DB_port = '',
         string $unix_socket = '',
         string $charset = 'utf8mb4',
         string $additional_prompt = '',
         bool $ignore_case_on_select = true,
         bool $read_only = true
     ) {
-        $this->open_ai_client = OpenAi\Manager::build(
+        $this->open_AI_client = OpenAi\Manager::build(
             $client,
-            new OpenAi\Authentication($open_ai_key)
+            new OpenAi\Authentication($open_AI_key)
         );
         $this->model = $model;
-        $this->db_name = $db_name;
+        $this->DB_name = $DB_name;
 
-        $dsn = "mysql:host=$db_host;port=$db_port;dbname=$db_name;"
+        $dsn = "mysql:host=$DB_host;port=$DB_port;dbname=$DB_name;"
             ."unix_socket=$unix_socket;charset=$charset";
 
-        $this->pdo = new \PDO($dsn, $db_user, $db_pass, [
-            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC
-        ]);
+        $this->pdo = new \PDO($dsn, $DB_user, $DB_pass);
         $this->additional_prompt = $additional_prompt;
         $this->read_only = $read_only;
         $this->ignore_case_on_select = $ignore_case_on_select;
@@ -74,13 +72,27 @@ class SQLator
      * @param string $command
      * @return array|int $result
      */
-    public function command(string $command): array|int
+    public function commandToResult(string $command): array|int
     {
-        $response = $this->sendCommandToAi($command);
+        $response = $this->getAIResponse($command);
         $this->handleQueryErrors($command, $response);
         // Response should be SQL if it passed the error handling
-        $result = $this->executeSql($response);
+        $result = $this->executeSQL($response);
         return $result;
+    }
+
+    /**
+     * Second entrypoint for this class. Takes a user-provided command, sends
+     * back the SQL without executing it.
+     *
+     * @param string $command
+     * @return string $SQL
+     */
+    public function commandToSQL(string $command): string
+    {
+        $response = $this->getAIResponse($command);
+        $this->handleQueryErrors($command, $response);
+        return $response;
     }
 
     /**
@@ -88,14 +100,14 @@ class SQLator
      *
      * @param string $command
      *
-     * @throws AiApiException
+     * @throws AI_APIException
      *
      * @return string
      */
-    private function sendCommandToAi(string $command): string
+    private function getAIResponse(string $command): string
     {
         $prompt = $this->buildPrompt($command);
-        $handler = $this->open_ai_client->chatCompletions()->create(
+        $handler = $this->open_AI_client->chatCompletions()->create(
             new OpenAi\Models\ChatCompletions\CreateRequest([
                 'model' => $this->model,
                 'messages' => [
@@ -108,7 +120,7 @@ class SQLator
                         'content' => $prompt
                     ],
                 ],
-                'temperature' => 0,
+                'temperature' => 0, // 0 is highly deterministic
             ])
         );
         try {
@@ -116,7 +128,7 @@ class SQLator
         } catch (ClientException $e) {
             $body = $handler->toArray();
             $httpCode = $handler->getResponse()->getStatusCode();
-            throw new AiApiException($httpCode, $body);
+            throw new AI_APIException($httpCode, $body);
         }
 
         return $model->choices[0]->message->content;
@@ -154,21 +166,21 @@ class SQLator
      * Executes SQL and returns the result. Returns an array if the query is
      * SELECT, and the number of affected otherwise.
      *
-     * @param string $sql
-     * @throws DbException
+     * @param string $SQL
+     * @throws DBException
      * @return array|int
      */
-    private function executeSql(string $sql): array|int
+    private function executeSQL(string $SQL): array|int
     {
         try {
-            $result = $this->pdo->query($sql);
+            $result = $this->pdo->query($SQL);
             $rows = $result->fetchAll();
             if (count($rows) > 0) {
                 return $rows;
             }
             return $result->rowCount();
         } catch (\PDOException $e) {
-            throw new DbException($sql, 0, $e);
+            throw new DBException($SQL, 0, $e);
         }
     }
 
@@ -185,11 +197,11 @@ class SQLator
         if ($tables_result->rowCount() > 0) {
             // Loop through each table
             while ($table = $tables_result->fetch()) {
-                $table_name = $table["Tables_in_$this->db_name"];
+                $table_name = $table["Tables_in_$this->DB_name"];
 
                 // Get the "CREATE TABLE" statement for the current table
-                $sql = "SHOW CREATE TABLE ".$table_name;
-                $result = $this->pdo->query($sql);
+                $SQL = "SHOW CREATE TABLE ".$table_name;
+                $result = $this->pdo->query($SQL);
 
                 if ($result->rowCount() > 0) {
                     $row = $result->fetch();
@@ -225,7 +237,6 @@ class SQLator
      * @param string $command The original user command
      * @param string $response The response from the AI
      *
-     * @throws BadCommandException
      * @throws OnlySelectException
      * @throws NonSingleStatementException
      *
