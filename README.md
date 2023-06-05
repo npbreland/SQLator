@@ -58,14 +58,14 @@ highly recommend to keep this setting for production use. Please only allow
 write access if you know what you are doing and your end users know what they 
 are doing.**
 
-`$result = $this->SQLator->commandToResult('Give me all students.');`
+`$result = $SQLator->commandToResult('Give me all students.');`
 
 This should return an array of students.
 
 2. **Without execution.** SQLator will only return the SQL it produces. This
 would mostly be useful to developers and database administrators.
 
-`$result = $this->SQLator->commandToSQL('Give me all students.');`
+`$result = $SQLator->commandToSQL('Give me all students.');`
 
 This should return SQL like:
 
