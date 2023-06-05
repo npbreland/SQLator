@@ -95,7 +95,12 @@ PHPUnit is included as a dev dependency, so you can run the suite of tests I
 have written using it. To bring up the testing environment, use `docker-compose up`.
 See the [docker-compose.yml](https://github.com/npbreland/SQLator/blob/main/docker-compose.yml)
 for more details. You may need to change the ports if you already have something
-running on the defaults.
+running on the defaults. To run the tests, you can run this:
+
+`docker exec sqlator_www ./vendor/bin/phpunit tests`
+
+This will run the command inside the sqlator_www container, which you'll need to 
+do for the Docker network DNS resolution to work properly.
 
 Note that since we are working with the output of a language model, tests may
 occasionally fail. I have reduced the likelihood of variable responses by 
