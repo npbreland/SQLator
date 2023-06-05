@@ -131,11 +131,10 @@ Note that since we are working with the output of a language model, tests may
 occasionally fail. I have reduced the likelihood of variable responses by 
 decreasing the "temperature" in the model's settings, but it could still happen.
 You may also get 429 "Too Many Request" errors if you run the tests too much in 
-a short span of time.
+a short span of time. I have added a short `sleep` in between tests to reduce this.
 
 Feel free to contribute more tests if you like. I am using
 the ORM [RedBeanPHP](https://www.redbeanphp.com/index.php) to seed the test database.
-I have added a short `sleep` in between tests to reduce this.
 
 ## Contributing
 
