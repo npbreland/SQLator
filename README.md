@@ -77,7 +77,7 @@ This should return SQL like:
 The AI is not magic, so its resolution skills will be hampered if your schemas
 are not set up well. For best results, I recommend setting up foreign keys where
 applicable and adding comments to your columns, especially where their meaning
-is not straightforward. These two steps should aid the AI, just like it would
+is not straightforward. These two steps should aid the AI, just like they would
 aid a human.
 
 ### Token maxes
