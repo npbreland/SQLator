@@ -1,5 +1,5 @@
 {
-    "name": "npbreland/SQLator",
+    "name": "npbreland/sqlator",
     "description": "Use AI to translate human language into SQL",
     "type": "library",
     "autoload": {

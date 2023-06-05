@@ -3,7 +3,7 @@ An AI tool for translating human language into SQL queries. Level up your busine
 
 ## Install
 
-`composer require npbreland/SQLator`
+`composer require npbreland/sqlator`
 
 ## Overview
 
