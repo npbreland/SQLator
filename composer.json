@@ -25,7 +25,7 @@
         "fakerphp/faker": "^1.22",
         "gabordemooij/redbean": "^5.7"
     },
-    "license": "GNU GPLv3",
+    "license": "AGPL-3.0-or-later",
     "authors": [
         {
             "name": "Nick Breland",
