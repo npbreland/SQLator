@@ -55,6 +55,16 @@ class SQLatorTest extends TestCase
         $this->assertEquals(10, count($AI_result));
     }
 
+    public function testSQL()
+    {
+        $students = R::dispense('student', 10);
+        R::storeAll($students);
+
+        $AI_SQL = $this->SQLator->commandToSQL('Give me all students.');
+        $SQL = 'select * from student;';
+        $this->assertEquals($SQL, strtolower(trim($AI_SQL)));
+    }
+
     public function testReadLevel2()
     {
         $students = R::dispense('student', 10);
