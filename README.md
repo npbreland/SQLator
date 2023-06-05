@@ -102,5 +102,5 @@ a short span of time. I have added a short `sleep` in between tests to reduce th
 
 ## Contributing
 
-Please feel free to contribute! You can have a look at the TODO.md to see what
-I am considering so far, but if you have other ideas I am definitely open to them!
+Please feel free to contribute! You can have a look at the [TODO.md](https://github.com/npbreland/SQLator/blob/main/TODO.md) 
+to see what I am considering so far, but if you have other ideas I am definitely open to them!

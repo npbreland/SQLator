@@ -3,7 +3,7 @@
 ## Definitely
 - [x] Create tests for non-read queries
 - [x] Make sure capitalization convention is consistent (SQLator vs Sqlator)
-- [ ] Create README that outlines basic usage, suggested use cases, pitfalls,
+- [x] Create README that outlines basic usage, suggested use cases, pitfalls,
 testing, etc.
 - [ ] Publish composer package
 - [ ] Test with a WordPress database
