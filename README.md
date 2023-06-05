@@ -43,8 +43,8 @@ $SQLator = new SQLator(
 );
 ```
 
-__Please look at the [constructor](https://github.com/npbreland/SQLator/blob/main/src/SQLator.php#L34) 
-for the full list of options, including enabling write access.__
+_Please look at the [constructor](https://github.com/npbreland/SQLator/blob/main/src/SQLator.php#L34) 
+for the full list of options, including enabling write access._
 
 `$client` must be a PSR-18-compliant HTTP client, such as [Guzzle](https://github.com/guzzle/guzzle) or [Symfony's
 HTTP client](https://github.com/symfony/http-client). [Here is a list on packagist.](https://packagist.org/providers/psr/http-client-implementation)
