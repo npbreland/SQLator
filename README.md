@@ -71,6 +71,31 @@ This should return SQL like:
 
 `SELECT * FROM students`
 
+## Limitations and suggested fixes/workarounds
+
+### Schemas
+The AI is not magic, so its resolution skills will be hampered if your schemas
+are not set up well. For best results, I recommend setting up foreign keys where
+applicable and adding comments to your columns, especially where their meaning
+is not straightforward. These two steps should aid the AI, just like it would
+aid a human.
+
+### Token maxes
+Language models have a maximum number of tokens that can be supplied. GPT-3.5-turbo
+accepts up to 4,096 tokens. This may mean that for large schema aggregates you
+run out of tokens in your prompt. GPT-4 can handle much more, so definitely
+try it out if you have access. I am planning to improve the tool to reduce this
+problem, perhaps by shortening the schema readouts to only the information that
+is absolutely needed by the language model, and/or allowing the user to specify
+the tables they want to include in SQLator's scope.
+
+### Complex queries
+SQLator is surprisingly powerful even with just GPT-3.5-turbo. However, I have
+noticed that it becomes less reliable the more complex queries become. You may
+be able to improve its resolution abilities by passing in additional information
+about your data to the `$additional_prompt` parameter in the SQLator constructor.
+If you have access to GPT-4, you may see a great improvement in its abilities.
+ 
 ## Error handling
 
 Currently I have defined three different exceptions that you may catch and handle
@@ -116,3 +141,4 @@ I have added a short `sleep` in between tests to reduce this.
 
 Please feel free to contribute! You can have a look at the [TODO.md](https://github.com/npbreland/SQLator/blob/main/TODO.md) 
 to see what I am considering so far, but if you have other ideas I am definitely open to them!
+

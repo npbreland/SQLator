@@ -5,7 +5,7 @@
 - [x] Make sure capitalization convention is consistent (SQLator vs Sqlator)
 - [x] Create README that outlines basic usage, suggested use cases, pitfalls,
 testing, etc.
-- [ ] Publish composer package
+- [x] Publish composer package
 - [ ] Test with a WordPress database
 - [ ] To reduce number of tokens in the prompt, find a way to make the table schemas 
 that are fed into the prompt shorter (what info can be removed or made shorter?) 
